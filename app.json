@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "GS365",
+    "slug": "gs365",
+    "version": "1.0.0",
+    "cli": {
+      "appVersionSource": "app.json"
+    },
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "apps",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/icon.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#121212"
+    },
+    "ios": {
+      "bundleIdentifier": "com.gs365new.app",
+      "buildNumber": "1",
+      "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#121212",
+        "foregroundImage": "./assets/images/icon.png",
+        "backgroundImage": "./assets/images/icon.png",
+        "monochromeImage": "./assets/images/icon.png"
+      },
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false,
+      "package": "com.gs365new.app",
+      "versionCode": 1
+    },
+    "statusBar": {
+      "backgroundColor": "#121212",
+      "barStyle": "light-content",
+      "translucent": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-splash-screen"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e07f0e4e-a17f-4e40-8769-81b862951e68"
+      }
+    },
+    "owner": "mdtushor"
+  }
+}
