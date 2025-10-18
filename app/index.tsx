@@ -141,6 +141,7 @@ export default function Index() {
               originWhitelist={["*"]}
               setSupportMultipleWindows={false}
               style={{ flex: 1, marginBottom: insets.bottom }}
+              automaticallyAdjustContentInsets={true}
             />
 
             {Platform.OS === "android" && (
