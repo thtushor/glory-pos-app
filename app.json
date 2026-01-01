@@ -2,10 +2,11 @@
   "expo": {
     "name": "GS365",
     "slug": "gs365",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "cli": {
       "appVersionSource": "app.json"
     },
+    "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "apps",
@@ -15,15 +16,7 @@
       "image": "./assets/images/icon.png",
       "resizeMode": "cover",
       "backgroundColor": "#121212"
-    },
-    "ios": {
-      "bundleIdentifier": "com.gs365new.app",
-      "buildNumber": "1",
-      "supportsTablet": true,
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
-    },
+    }, 
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#121212",
@@ -46,19 +39,26 @@
       "favicon": "./assets/images/icon.png"
     },
     "plugins": [
-      "expo-router",
-      "expo-splash-screen"
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "useLegacyPackaging": true 
+          }
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
     },
+    "owner": "ridoy1615424596",
     "extra": {
-      "router": {},
       "eas": {
-        "projectId": "e07f0e4e-a17f-4e40-8769-81b862951e68"
+        "projectId": "c4d82d62-2985-4496-9e62-622945a69ae3"
       }
-    },
-    "owner": "mdtushor"
+    }
   }
 }
