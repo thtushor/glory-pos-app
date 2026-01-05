@@ -93,11 +93,11 @@ export default function Index() {
       <View
         style={{
           height: Platform.OS === "android" ? StatusBar.currentHeight : 44,
-          backgroundColor: "#121212",
+          backgroundColor: "#fff",
         }}
       />
       <StatusBar
-        backgroundColor="#121212"
+        backgroundColor="#fff"
         barStyle="light-content"
         translucent
       />
@@ -112,12 +112,12 @@ export default function Index() {
         </Animated.View>
       )}
 
-      <SafeAreaView style={{ flex: 1, backgroundColor: "#121212" }}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
         {isConnected ? (
           <>
             <WebView
               ref={webViewRef}
-              source={{ uri: "https://gamestar365.com" }}
+              source={{ uri: "https://glorypos.com" }}
               javaScriptEnabled
               domStorageEnabled
               allowsInlineMediaPlayback
@@ -147,8 +147,8 @@ export default function Index() {
             {Platform.OS === "android" && (
               <View
                 style={{
-                  height: insets.bottom || 20,
-                  backgroundColor: "#121212",
+                  height: insets.bottom || 10,
+                  backgroundColor: "#fff",
                 }}
               />
             )}
@@ -156,10 +156,10 @@ export default function Index() {
         ) : (
           <View style={styles.offlineContainer}>
             <Image
-              source={require("./assets/connection.jpg")}
+              source={require("./assets/connection.png")}
               style={styles.offlineImage}
             />
-            <ActivityIndicator size="large" color="#FFD700" />
+            <ActivityIndicator size="large" color="#45b471" />
           </View>
         )}
       </SafeAreaView>
@@ -170,11 +170,11 @@ export default function Index() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#121212",
+    backgroundColor: "#fff",
   },
   splashContainer: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: "#121212",
+    backgroundColor: "#fff",
     justifyContent: "center",
     alignItems: "center",
     zIndex: 999,
@@ -187,11 +187,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "#121212",
+    backgroundColor: "#fff",
   },
   offlineImage: {
     width: 120,
     height: 120,
-    marginBottom: 20,
+    marginBottom: 10,
   },
 });

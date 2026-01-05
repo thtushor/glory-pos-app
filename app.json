@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "GS365",
-    "slug": "gs365",
-    "version": "1.0.1",
+    "name": "glorypos",
+    "slug": "glorypos",
+    "version": "1.0.0",
     "cli": {
       "appVersionSource": "app.json"
     },
@@ -16,7 +16,7 @@
       "image": "./assets/images/icon.png",
       "resizeMode": "cover",
       "backgroundColor": "#121212"
-    }, 
+    },
     "android": {
       "adaptiveIcon": {
         "backgroundColor": "#121212",
@@ -26,7 +26,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.gs365new.app",
+      "package": "com.glorypos.app",
       "versionCode": 1
     },
     "statusBar": {
@@ -45,7 +45,8 @@
           "android": {
             "enableProguardInReleaseBuilds": true,
             "enableShrinkResourcesInReleaseBuilds": true,
-            "useLegacyPackaging": true 
+            "useLegacyPackaging": true,
+            "enableMinifyInReleaseBuilds": true
           }
         }
       ]
@@ -54,11 +55,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "ridoy1615424596",
     "extra": {
       "eas": {
-        "projectId": "c4d82d62-2985-4496-9e62-622945a69ae3"
+        "projectId": "d981c6f6-8861-4ffa-af0a-c2bf5a6d166f"
       }
-    }
+    },
+    "owner": "rcabir400"
   }
 }
