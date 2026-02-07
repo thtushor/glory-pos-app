@@ -3,6 +3,7 @@ import { Stack, useRouter } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   BackHandler,
   Image,
@@ -10,6 +11,8 @@ import {
   SafeAreaView,
   StatusBar,
   StyleSheet,
+  Text,
+  TouchableOpacity,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +20,7 @@ import type { WebViewMessageEvent } from "react-native-webview";
 import { WebView } from "react-native-webview";
 
 // Import printer services
+import { usePrinter } from "../hooks/usePrinter";
 import { WebViewMessageHandler } from "../services/WebViewMessageHandler";
 import { PrinterService } from "../services/printer";
 
@@ -31,6 +35,10 @@ export default function Index() {
   const [isWebViewReady, setIsWebViewReady] = useState(false);
   const [minTimePassed, setMinTimePassed] = useState(false);
   const [isSplashHidden, setIsSplashHidden] = useState(false);
+  const [showTestBar, setShowTestBar] = useState(true);
+
+  // Get printer state
+  const { isConnected: isPrinterConnected, isPrinting } = usePrinter();
 
   // Initialize printer service
   useEffect(() => {
@@ -113,6 +121,83 @@ export default function Index() {
     }
   }, [minTimePassed, isWebViewReady]);
 
+  // ========== Test Print Handlers ==========
+
+  const handleTestInvoicePrint = async () => {
+    if (!isPrinterConnected) {
+      Alert.alert("No Printer", "Please connect a printer first in Settings", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Go to Settings", onPress: () => router.push("/printer-settings" as any) },
+      ]);
+      return;
+    }
+
+    const dummyInvoice = {
+      invoiceNumber: "TEST-" + Date.now().toString().slice(-6),
+      date: new Date().toISOString(),
+      tableNumber: "T5",
+      guestNumber: 2,
+      customer: {
+        name: "Test Customer",
+        phone: "0123456789",
+        email: "test@example.com",
+      },
+      items: [
+        { productName: "Burger Deluxe", sku: "BRG001", details: "Extra cheese", quantity: 2, unitPrice: 150, subtotal: 300 },
+        { productName: "French Fries", sku: "FRY001", details: "", quantity: 1, unitPrice: 50, subtotal: 50 },
+        { productName: "Coca Cola", sku: "DRK001", details: "Ice", quantity: 2, unitPrice: 35, subtotal: 70 },
+      ],
+      summary: { subtotal: "420", tax: "29.40", taxRate: "7", discount: "0", discountRate: "0", total: "449.40" },
+      payment: { method: "cash" as const, status: "Paid", paidAmount: 500, totalAmount: 449.40, remainingAmount: 0, isPaid: true, isPartial: false },
+      orderStatus: "Completed",
+      businessInfo: { name: "Glory POS Restaurant", address: "123 Test Street, Bangkok", phone: "02-123-4567", email: "info@glorypos.com", website: "www.glorypos.com", taxId: "1234567890123" },
+      stats: { totalItems: 5, totalUniqueItems: 3, averageItemPrice: "84.00" },
+    };
+
+    try {
+      await PrinterService.addPrintJob("INVOICE", dummyInvoice);
+      Alert.alert("Success", "Test invoice sent to printer!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to print test invoice");
+    }
+  };
+
+  const handleTestKOTPrint = async () => {
+    if (!isPrinterConnected) {
+      Alert.alert("No Printer", "Please connect a printer first in Settings", [
+        { text: "Cancel", style: "cancel" },
+        { text: "Go to Settings", onPress: () => router.push("/printer-settings" as any) },
+      ]);
+      return;
+    }
+
+    const dummyKOT = {
+      invoiceNumber: "KOT-" + Date.now().toString().slice(-6),
+      date: new Date().toISOString(),
+      tableNumber: "T5",
+      guestNumber: 2,
+      specialNotes: "Allergic to peanuts! Extra spicy!",
+      customer: { name: "Kitchen Order", phone: "", email: "" },
+      items: [
+        { productName: "Pad Thai", sku: "THAI001", details: "No peanuts, extra spicy", quantity: 2, unitPrice: 120, subtotal: 240 },
+        { productName: "Tom Yum Soup", sku: "SOUP001", details: "Very spicy", quantity: 1, unitPrice: 80, subtotal: 80 },
+        { productName: "Green Curry", sku: "CURRY001", details: "", quantity: 1, unitPrice: 150, subtotal: 150 },
+      ],
+      summary: { subtotal: "470", tax: "0", taxRate: "0", discount: "0", discountRate: "0", total: "470" },
+      payment: { method: "cash" as const, status: "Pending", paidAmount: 0, totalAmount: 470, remainingAmount: 470, isPaid: false, isPartial: false },
+      orderStatus: "Preparing",
+      businessInfo: { name: "Glory POS Restaurant", address: "123 Test Street, Bangkok", phone: "02-123-4567", email: "info@glorypos.com", website: "www.glorypos.com", taxId: "1234567890123" },
+      stats: { totalItems: 4, totalUniqueItems: 3, averageItemPrice: "117.50" },
+    };
+
+    try {
+      await PrinterService.addPrintJob("KOT", dummyKOT);
+      Alert.alert("Success", "Test KOT sent to printer!");
+    } catch (error: any) {
+      Alert.alert("Error", error.message || "Failed to print test KOT");
+    }
+  };
+
   /**
    * Handle messages from WebView (frontend)
    * This is the bridge between web frontend and native printer services
@@ -181,6 +266,44 @@ export default function Index() {
       <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
         {isConnected ? (
           <>
+            {/* Test Print Bar - For Development Testing */}
+            {showTestBar && (
+              <View style={styles.testBar}>
+                <View style={styles.testBarLeft}>
+                  <View style={[styles.statusDot, { backgroundColor: isPrinterConnected ? "#22c55e" : "#ef4444" }]} />
+                  <Text style={styles.testBarTitle}>🧪 Test Print</Text>
+                </View>
+                <View style={styles.testBarButtons}>
+                  <TouchableOpacity
+                    style={[styles.testButton, styles.invoiceButton]}
+                    onPress={handleTestInvoicePrint}
+                    disabled={isPrinting}
+                  >
+                    <Text style={styles.testButtonText}>🧾 Invoice</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.testButton, styles.kotButton]}
+                    onPress={handleTestKOTPrint}
+                    disabled={isPrinting}
+                  >
+                    <Text style={styles.testButtonText}>📋 KOT</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.settingsButton}
+                    onPress={() => router.push("/printer-settings" as any)}
+                  >
+                    <Text style={styles.settingsButtonText}>⚙️</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowTestBar(false)}
+                  >
+                    <Text style={styles.closeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+
             <WebView
               ref={webViewRef}
               source={{ uri: "https://glorypos.com" }}
@@ -263,4 +386,68 @@ const styles = StyleSheet.create({
     height: 120,
     marginBottom: 10,
   },
+  // Test Print Bar Styles
+  testBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#1f2937",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: "#374151",
+  },
+  testBarLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginRight: 8,
+  },
+  testBarTitle: {
+    color: "#fff",
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  testBarButtons: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  testButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  invoiceButton: {
+    backgroundColor: "#3b82f6",
+  },
+  kotButton: {
+    backgroundColor: "#f59e0b",
+  },
+  testButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  settingsButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  settingsButtonText: {
+    fontSize: 16,
+  },
+  closeButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+  },
+  closeButtonText: {
+    color: "#9ca3af",
+    fontSize: 14,
+    fontWeight: "bold",
+  },
 });
+

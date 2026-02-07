@@ -230,6 +230,175 @@ export default function PrinterSettings() {
         }
     };
 
+    const handleTestInvoicePrint = async () => {
+        if (!isConnected) {
+            Alert.alert("No Printer", "Please connect a printer first");
+            return;
+        }
+
+        // Dummy invoice data for testing
+        const dummyInvoice = {
+            invoiceNumber: "TEST-" + Date.now().toString().slice(-6),
+            date: new Date().toISOString(),
+            tableNumber: "T5",
+            guestNumber: 2,
+            customer: {
+                name: "Test Customer",
+                phone: "0123456789",
+                email: "test@example.com",
+            },
+            items: [
+                {
+                    productName: "Burger Deluxe",
+                    sku: "BRG001",
+                    details: "Extra cheese, no onion",
+                    quantity: 2,
+                    unitPrice: 150,
+                    subtotal: 300,
+                },
+                {
+                    productName: "French Fries",
+                    sku: "FRY001",
+                    details: "",
+                    quantity: 1,
+                    unitPrice: 50,
+                    subtotal: 50,
+                },
+                {
+                    productName: "Coca Cola",
+                    sku: "DRK001",
+                    details: "Ice",
+                    quantity: 2,
+                    unitPrice: 35,
+                    subtotal: 70,
+                },
+            ],
+            summary: {
+                subtotal: "420",
+                tax: "29.40",
+                taxRate: "7",
+                discount: "0",
+                discountRate: "0",
+                total: "449.40",
+            },
+            payment: {
+                method: "cash" as const,
+                status: "Paid",
+                paidAmount: 500,
+                totalAmount: 449.40,
+                remainingAmount: 0,
+                isPaid: true,
+                isPartial: false,
+            },
+            orderStatus: "Completed",
+            businessInfo: {
+                name: "Glory POS Restaurant",
+                address: "123 Test Street, Bangkok",
+                phone: "02-123-4567",
+                email: "info@glorypos.com",
+                website: "www.glorypos.com",
+                taxId: "1234567890123",
+            },
+            stats: {
+                totalItems: 5,
+                totalUniqueItems: 3,
+                averageItemPrice: "84.00",
+            },
+        };
+
+        try {
+            const jobId = await PrinterService.addPrintJob("INVOICE", dummyInvoice);
+            Alert.alert("Success", `Test invoice sent to printer!\nJob ID: ${jobId}`);
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to print test invoice");
+        }
+    };
+
+    const handleTestKOTPrint = async () => {
+        if (!isConnected) {
+            Alert.alert("No Printer", "Please connect a printer first");
+            return;
+        }
+
+        // Dummy KOT data for testing
+        const dummyKOT = {
+            invoiceNumber: "KOT-" + Date.now().toString().slice(-6),
+            date: new Date().toISOString(),
+            tableNumber: "T5",
+            guestNumber: 2,
+            specialNotes: "Allergic to peanuts! Extra spicy!",
+            customer: {
+                name: "Kitchen Order",
+                phone: "",
+                email: "",
+            },
+            items: [
+                {
+                    productName: "Pad Thai",
+                    sku: "THAI001",
+                    details: "No peanuts, extra spicy",
+                    quantity: 2,
+                    unitPrice: 120,
+                    subtotal: 240,
+                },
+                {
+                    productName: "Tom Yum Soup",
+                    sku: "SOUP001",
+                    details: "Very spicy",
+                    quantity: 1,
+                    unitPrice: 80,
+                    subtotal: 80,
+                },
+                {
+                    productName: "Green Curry",
+                    sku: "CURRY001",
+                    details: "",
+                    quantity: 1,
+                    unitPrice: 150,
+                    subtotal: 150,
+                },
+            ],
+            summary: {
+                subtotal: "470",
+                tax: "0",
+                taxRate: "0",
+                discount: "0",
+                discountRate: "0",
+                total: "470",
+            },
+            payment: {
+                method: "cash" as const,
+                status: "Pending",
+                paidAmount: 0,
+                totalAmount: 470,
+                remainingAmount: 470,
+                isPaid: false,
+                isPartial: false,
+            },
+            orderStatus: "Preparing",
+            businessInfo: {
+                name: "Glory POS Restaurant",
+                address: "123 Test Street, Bangkok",
+                phone: "02-123-4567",
+                email: "info@glorypos.com",
+                website: "www.glorypos.com",
+                taxId: "1234567890123",
+            },
+            stats: {
+                totalItems: 4,
+                totalUniqueItems: 3,
+                averageItemPrice: "117.50",
+            },
+        };
+
+        try {
+            const jobId = await PrinterService.addPrintJob("KOT", dummyKOT);
+            Alert.alert("Success", `Test KOT sent to printer!\nJob ID: ${jobId}`);
+        } catch (error: any) {
+            Alert.alert("Error", error.message || "Failed to print test KOT");
+        }
+    };
+
     const handleDisconnect = async () => {
         Alert.alert("Disconnect Printer", "Are you sure you want to disconnect?", [
             { text: "Cancel", style: "cancel" },
