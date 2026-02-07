@@ -3,9 +3,6 @@
     "name": "glorypos",
     "slug": "glorypos",
     "version": "1.0.0",
-    "cli": {
-      "appVersionSource": "app.json"
-    },
     "jsEngine": "hermes",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -28,11 +25,6 @@
       "predictiveBackGestureEnabled": false,
       "package": "com.glorypos.app",
       "versionCode": 1
-    },
-    "statusBar": {
-      "backgroundColor": "#121212",
-      "barStyle": "light-content",
-      "translucent": false
     },
     "web": {
       "output": "static",
