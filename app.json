@@ -65,9 +65,15 @@
     },
     "extra": {
       "eas": {
-        "projectId": "d981c6f6-8861-4ffa-af0a-c2bf5a6d166f"
+        "projectId": "c9c265c2-6fe9-4f43-bd7a-cff696068d7d"
       }
     },
-    "owner": "rcabir400"
+    "owner": "sishufol2"
+    //  "extra": {
+    //   "eas": {
+    //     "projectId": "d981c6f6-8861-4ffa-af0a-c2bf5a6d166f"
+    //   }
+    // },
+    // "owner": "rcabir400"
   }
 }

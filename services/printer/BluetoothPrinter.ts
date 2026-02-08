@@ -5,11 +5,10 @@
  * Requires: react-native-bluetooth-escpos-printer (dev build)
  */
 
-import { Alert, PermissionsAndroid, Platform } from "react-native";
+import { Alert, DeviceEventEmitter, PermissionsAndroid, Platform } from "react-native";
 import type { BluetoothDevice } from "../../types/printer";
 
 // Type declarations for the Bluetooth printer library
-// The actual library will be dynamically imported to prevent crashes in Expo Go
 interface BluetoothManager {
     isBluetoothEnabled: () => Promise<boolean>;
     enableBluetooth: () => Promise<void>;
@@ -33,56 +32,96 @@ interface BluetoothEscposPrinter {
     printAndFeed: (feed: number) => Promise<void>;
     printerUnderLine: (line: number) => Promise<void>;
     cutOnePoint: () => Promise<void>;
+    setWidth: (width: number) => Promise<void>;
+    printBarCode: (content: string, nType: number, nWidth: number, nHeight: number, nHriFontType: number, nHriFontPosition: number) => Promise<void>;
+    printQRCode: (content: string, size: number, correctionLevel: number) => Promise<void>;
 }
 
-// Event emitter for bluetooth events
-type BluetoothEventCallback = (device: any) => void;
+// Callback types
+type DeviceCallback = (device: BluetoothDevice) => void;
+type ScanCompleteCallback = (devices: BluetoothDevice[]) => void;
 
 class BluetoothPrinterClass {
     private isLibraryAvailable: boolean = false;
+    private isInitialized: boolean = false;
     private BluetoothManager: BluetoothManager | null = null;
     private BluetoothEscposPrinter: BluetoothEscposPrinter | null = null;
     private connectedDevice: BluetoothDevice | null = null;
     private isScanning: boolean = false;
-    private listeners: Map<string, BluetoothEventCallback[]> = new Map();
+    private discoveredDevices: BluetoothDevice[] = [];
+    private pairedDevices: BluetoothDevice[] = [];
+    private eventListeners: any[] = [];
     private reconnectAttempts: number = 0;
     private maxReconnectAttempts: number = 3;
     private reconnectDelay: number = 2000;
+    private initPromise: Promise<boolean> | null = null;
 
     constructor() {
-        this.initializeLibrary();
+        // Don't auto-initialize - wait for explicit call
+        // This prevents crashes in Expo Go
     }
 
     /**
-     * Dynamically import Bluetooth library
-     * This prevents crashes when running in Expo Go
+     * Initialize the Bluetooth library
+     * Call this before using any Bluetooth functionality
+     * Returns true if Bluetooth is available
      */
-    private async initializeLibrary(): Promise<void> {
-        try {
-            // Dynamic import to avoid crashes in Expo Go
-            const lib = await import("react-native-bluetooth-escpos-printer");
-            this.BluetoothManager = lib.BluetoothManager;
-            this.BluetoothEscposPrinter = lib.BluetoothEscposPrinter;
-            this.isLibraryAvailable = true;
-            console.log("[BluetoothPrinter] Library loaded successfully");
+    async initialize(): Promise<boolean> {
+        // Skip on web
+        if (Platform.OS === "web") {
+            console.log("[BluetoothPrinter] Bluetooth not supported on web");
+            return false;
+        }
 
-            // Setup native event listeners
-            this.setupNativeEventListeners();
+        // Return existing promise if already initializing
+        if (this.initPromise) {
+            return this.initPromise;
+        }
+
+        this.initPromise = this.doInitialize();
+        return this.initPromise;
+    }
+
+    private async doInitialize(): Promise<boolean> {
+        if (this.isInitialized) {
+            return this.isLibraryAvailable;
+        }
+
+        try {
+            // Check if we're in Expo Go (native modules not available)
+            const { NativeModules } = await import("react-native");
+
+            // The BluetoothManager native module check
+            if (!NativeModules.BluetoothManager) {
+                console.warn("[BluetoothPrinter] Native module not available. Are you running in Expo Go?");
+                console.warn("[BluetoothPrinter] Please use: npx expo run:android");
+                this.isLibraryAvailable = false;
+                this.isInitialized = true;
+                return false;
+            }
+
+            // Dynamic import to avoid crashes
+            const lib = await import("react-native-bluetooth-escpos-printer");
+            this.BluetoothManager = lib.BluetoothManager as any;
+            this.BluetoothEscposPrinter = lib.BluetoothEscposPrinter as any;
+            this.isLibraryAvailable = true;
+            this.isInitialized = true;
+            console.log("[BluetoothPrinter] Library loaded successfully");
+            return true;
         } catch (error) {
             console.warn("[BluetoothPrinter] Library not available:", error);
+            console.warn("[BluetoothPrinter] Please run: npx expo run:android");
             this.isLibraryAvailable = false;
+            this.isInitialized = true;
+            return false;
         }
     }
 
     /**
-     * Setup native Bluetooth event listeners
+     * Wait for library initialization (legacy support)
      */
-    private setupNativeEventListeners(): void {
-        if (!this.BluetoothManager) return;
-
-        // Note: Event setup depends on the specific library implementation
-        // This is a placeholder for event subscription
-        console.log("[BluetoothPrinter] Native event listeners ready");
+    async waitForInit(): Promise<void> {
+        await this.initialize();
     }
 
     /**
@@ -101,7 +140,7 @@ class BluetoothPrinterClass {
         }
 
         try {
-            const apiLevel = Platform.Version;
+            const apiLevel = Platform.Version as number;
 
             if (apiLevel >= 31) {
                 // Android 12+ requires BLUETOOTH_SCAN and BLUETOOTH_CONNECT
@@ -118,7 +157,12 @@ class BluetoothPrinterClass {
                 );
 
                 if (!allGranted) {
-                    console.warn("[BluetoothPrinter] Some permissions denied");
+                    console.warn("[BluetoothPrinter] Some permissions denied:", results);
+                    Alert.alert(
+                        "Permissions Required",
+                        "Bluetooth scanning requires Bluetooth and Location permissions. Please enable them in Settings.",
+                        [{ text: "OK" }]
+                    );
                     return false;
                 }
 
@@ -146,8 +190,11 @@ class BluetoothPrinterClass {
      * Check if Bluetooth is enabled
      */
     async isBluetoothEnabled(): Promise<boolean> {
+        await this.waitForInit();
+
         if (!this.BluetoothManager) {
-            throw new Error("Bluetooth library not available");
+            console.warn("[BluetoothPrinter] Library not available");
+            return false;
         }
 
         try {
@@ -161,26 +208,35 @@ class BluetoothPrinterClass {
     /**
      * Enable Bluetooth (Android only)
      */
-    async enableBluetooth(): Promise<void> {
+    async enableBluetooth(): Promise<boolean> {
+        await this.waitForInit();
+
         if (!this.BluetoothManager) {
-            throw new Error("Bluetooth library not available");
+            throw new Error("Bluetooth library not available. Please use a development build.");
         }
 
         try {
             await this.BluetoothManager.enableBluetooth();
             console.log("[BluetoothPrinter] Bluetooth enabled");
+            return true;
         } catch (error) {
             console.error("[BluetoothPrinter] Failed to enable Bluetooth:", error);
-            throw error;
+            return false;
         }
     }
 
     /**
      * Scan for Bluetooth devices
+     * Returns both paired and discovered devices
      */
-    async scanDevices(onDeviceFound?: (device: BluetoothDevice) => void): Promise<BluetoothDevice[]> {
+    async scanDevices(
+        onDeviceFound?: DeviceCallback,
+        onScanComplete?: ScanCompleteCallback
+    ): Promise<BluetoothDevice[]> {
+        await this.waitForInit();
+
         if (!this.BluetoothManager) {
-            throw new Error("Bluetooth library not available");
+            throw new Error("Bluetooth library not available. Please use a development build.");
         }
 
         // Request permissions first
@@ -192,65 +248,222 @@ class BluetoothPrinterClass {
         // Check if Bluetooth is enabled
         const isEnabled = await this.isBluetoothEnabled();
         if (!isEnabled) {
-            Alert.alert(
-                "Bluetooth Disabled",
-                "Please enable Bluetooth to scan for printers",
-                [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                        text: "Enable",
-                        onPress: async () => {
-                            try {
-                                await this.enableBluetooth();
-                            } catch (e) {
-                                console.error("Failed to enable Bluetooth:", e);
-                            }
-                        },
-                    },
-                ]
-            );
-            throw new Error("Bluetooth is disabled");
+            const shouldEnable = await new Promise<boolean>((resolve) => {
+                Alert.alert(
+                    "Bluetooth Disabled",
+                    "Please enable Bluetooth to scan for printers",
+                    [
+                        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                        { text: "Enable", onPress: () => resolve(true) },
+                    ]
+                );
+            });
+
+            if (shouldEnable) {
+                const enabled = await this.enableBluetooth();
+                if (!enabled) {
+                    throw new Error("Failed to enable Bluetooth");
+                }
+            } else {
+                throw new Error("Bluetooth is disabled");
+            }
         }
 
-        const devices: BluetoothDevice[] = [];
+        // Clear previous scan results
+        this.discoveredDevices = [];
+        this.pairedDevices = [];
         this.isScanning = true;
+
+        // Remove previous event listeners
+        this.removeEventListeners();
 
         console.log("[BluetoothPrinter] Starting device scan...");
 
-        try {
-            // The library emits events for found devices
-            // We'll collect them during the scan
-            await this.BluetoothManager.scanDevices();
+        return new Promise((resolve, reject) => {
+            // Set up event listeners for device discovery
+            const pairedListener = DeviceEventEmitter.addListener(
+                "EVENT_DEVICE_ALREADY_PAIRED",
+                (data) => {
+                    console.log("[BluetoothPrinter] Paired devices:", data);
+                    try {
+                        const devices = typeof data === "string" ? JSON.parse(data) : data;
+                        if (Array.isArray(devices)) {
+                            devices.forEach((device: any) => {
+                                const btDevice: BluetoothDevice = {
+                                    id: device.address,
+                                    name: device.name || "Unknown Device",
+                                    address: device.address,
+                                    paired: true,
+                                };
+                                this.pairedDevices.push(btDevice);
+                                onDeviceFound?.(btDevice);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("[BluetoothPrinter] Parse paired devices error:", e);
+                    }
+                }
+            );
 
-            // Scan typically takes a few seconds
-            // Return collected devices after scan completes
-            console.log(`[BluetoothPrinter] Scan complete, found ${devices.length} devices`);
+            const foundListener = DeviceEventEmitter.addListener(
+                "EVENT_DEVICE_FOUND",
+                (data) => {
+                    console.log("[BluetoothPrinter] Device found:", data);
+                    try {
+                        const device = typeof data === "string" ? JSON.parse(data) : data;
+                        if (device && device.address) {
+                            const btDevice: BluetoothDevice = {
+                                id: device.address,
+                                name: device.name || "Unknown Device",
+                                address: device.address,
+                                paired: false,
+                            };
+                            // Avoid duplicates
+                            if (!this.discoveredDevices.find(d => d.address === btDevice.address)) {
+                                this.discoveredDevices.push(btDevice);
+                                onDeviceFound?.(btDevice);
+                            }
+                        }
+                    } catch (e) {
+                        console.error("[BluetoothPrinter] Parse found device error:", e);
+                    }
+                }
+            );
 
-            return devices;
-        } catch (error) {
-            console.error("[BluetoothPrinter] Scan failed:", error);
-            throw error;
-        } finally {
-            this.isScanning = false;
-        }
+            const lostListener = DeviceEventEmitter.addListener(
+                "EVENT_CONNECTION_LOST",
+                () => {
+                    console.warn("[BluetoothPrinter] Connection lost");
+                    this.connectedDevice = null;
+                }
+            );
+
+            const notSupportListener = DeviceEventEmitter.addListener(
+                "EVENT_BLUETOOTH_NOT_SUPPORT",
+                () => {
+                    console.error("[BluetoothPrinter] Bluetooth not supported");
+                    this.isScanning = false;
+                    this.removeEventListeners();
+                    reject(new Error("Bluetooth is not supported on this device"));
+                }
+            );
+
+            this.eventListeners = [pairedListener, foundListener, lostListener, notSupportListener];
+
+            // Start scanning
+            this.BluetoothManager!.scanDevices()
+                .then(() => {
+                    console.log("[BluetoothPrinter] Scan initiated");
+
+                    // Wait for scan to complete (typically 10-12 seconds)
+                    setTimeout(() => {
+                        this.isScanning = false;
+                        const allDevices = [...this.pairedDevices, ...this.discoveredDevices];
+                        console.log(`[BluetoothPrinter] Scan complete. Found ${allDevices.length} devices`);
+                        onScanComplete?.(allDevices);
+                        resolve(allDevices);
+                    }, 12000);
+                })
+                .catch((error) => {
+                    console.error("[BluetoothPrinter] Scan failed:", error);
+                    this.isScanning = false;
+                    this.removeEventListeners();
+                    reject(error);
+                });
+        });
     }
 
     /**
-     * Get list of already paired devices
+     * Remove all event listeners
+     */
+    private removeEventListeners(): void {
+        this.eventListeners.forEach(listener => {
+            try {
+                listener.remove();
+            } catch (e) {
+                console.warn("[BluetoothPrinter] Failed to remove listener:", e);
+            }
+        });
+        this.eventListeners = [];
+    }
+
+    /**
+     * Get list of already paired devices (quick method without full scan)
      */
     async getPairedDevices(): Promise<BluetoothDevice[]> {
-        // This would be implemented based on the library's API
-        // Some libraries provide a method to get paired devices directly
-        console.log("[BluetoothPrinter] Getting paired devices...");
-        return [];
+        await this.waitForInit();
+
+        if (!this.BluetoothManager) {
+            return [];
+        }
+
+        // Request permissions
+        await this.requestPermissions();
+
+        return new Promise((resolve) => {
+            const pairedDevices: BluetoothDevice[] = [];
+
+            const listener = DeviceEventEmitter.addListener(
+                "EVENT_DEVICE_ALREADY_PAIRED",
+                (data) => {
+                    try {
+                        const devices = typeof data === "string" ? JSON.parse(data) : data;
+                        if (Array.isArray(devices)) {
+                            devices.forEach((device: any) => {
+                                pairedDevices.push({
+                                    id: device.address,
+                                    name: device.name || "Unknown Device",
+                                    address: device.address,
+                                    paired: true,
+                                });
+                            });
+                        }
+                    } catch (e) {
+                        console.error("[BluetoothPrinter] Parse error:", e);
+                    }
+                }
+            );
+
+            this.BluetoothManager!.scanDevices()
+                .then(() => {
+                    // Return paired devices after a short delay
+                    setTimeout(() => {
+                        listener.remove();
+                        resolve(pairedDevices);
+                    }, 2000);
+                })
+                .catch((error) => {
+                    console.error("[BluetoothPrinter] Failed to get paired devices:", error);
+                    listener.remove();
+                    resolve([]);
+                });
+        });
+    }
+
+    /**
+     * Stop scanning
+     */
+    stopScan(): void {
+        this.isScanning = false;
+        this.removeEventListeners();
+        console.log("[BluetoothPrinter] Scan stopped");
+    }
+
+    /**
+     * Get scanning status
+     */
+    getIsScanning(): boolean {
+        return this.isScanning;
     }
 
     /**
      * Connect to a Bluetooth printer
      */
-    async connect(address: string): Promise<boolean> {
+    async connect(address: string, deviceName?: string): Promise<boolean> {
+        await this.waitForInit();
+
         if (!this.BluetoothManager) {
-            throw new Error("Bluetooth library not available");
+            throw new Error("Bluetooth library not available. Please use a development build.");
         }
 
         console.log(`[BluetoothPrinter] Connecting to: ${address}`);
@@ -260,7 +473,7 @@ class BluetoothPrinterClass {
 
             this.connectedDevice = {
                 id: address,
-                name: "Thermal Printer",
+                name: deviceName || "Thermal Printer",
                 address: address,
                 paired: true,
             };
@@ -330,7 +543,6 @@ class BluetoothPrinterClass {
 
         try {
             // Convert Uint8Array to base64 or use text printing
-            // The exact method depends on the library's API
             const textData = new TextDecoder().decode(data);
             await this.BluetoothEscposPrinter.printText(textData, {});
 
@@ -341,7 +553,6 @@ class BluetoothPrinterClass {
             // Attempt auto-reconnect
             if (this.reconnectAttempts < this.maxReconnectAttempts) {
                 await this.attemptReconnect();
-                // Retry sending after reconnect
                 throw new Error("Connection lost, please try again");
             }
 
@@ -414,7 +625,7 @@ class BluetoothPrinterClass {
         await new Promise((resolve) => setTimeout(resolve, this.reconnectDelay));
 
         try {
-            await this.connect(this.connectedDevice.address);
+            await this.connect(this.connectedDevice.address, this.connectedDevice.name);
             this.reconnectAttempts = 0;
             console.log("[BluetoothPrinter] Reconnected successfully");
         } catch (error) {
@@ -447,6 +658,52 @@ class BluetoothPrinterClass {
         ];
 
         await this.print(lines);
+    }
+
+    /**
+     * Print barcode
+     */
+    async printBarcode(content: string, type: number = 73, width: number = 2, height: number = 60): Promise<void> {
+        if (!this.BluetoothEscposPrinter) {
+            throw new Error("Bluetooth printer not available");
+        }
+
+        if (!this.connectedDevice) {
+            throw new Error("No printer connected");
+        }
+
+        try {
+            await this.BluetoothEscposPrinter.printerAlign(1); // Center
+            await this.BluetoothEscposPrinter.printBarCode(content, type, width, height, 0, 2);
+            await this.BluetoothEscposPrinter.printAndFeed(2);
+            console.log("[BluetoothPrinter] Barcode printed");
+        } catch (error) {
+            console.error("[BluetoothPrinter] Barcode print failed:", error);
+            throw error;
+        }
+    }
+
+    /**
+     * Print QR code
+     */
+    async printQRCode(content: string, size: number = 6): Promise<void> {
+        if (!this.BluetoothEscposPrinter) {
+            throw new Error("Bluetooth printer not available");
+        }
+
+        if (!this.connectedDevice) {
+            throw new Error("No printer connected");
+        }
+
+        try {
+            await this.BluetoothEscposPrinter.printerAlign(1); // Center
+            await this.BluetoothEscposPrinter.printQRCode(content, size, 1);
+            await this.BluetoothEscposPrinter.printAndFeed(2);
+            console.log("[BluetoothPrinter] QR code printed");
+        } catch (error) {
+            console.error("[BluetoothPrinter] QR code print failed:", error);
+            throw error;
+        }
     }
 }
 

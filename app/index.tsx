@@ -9,10 +9,11 @@ import {
   Image,
   Platform,
   SafeAreaView,
+  StatusBar,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { WebViewMessageEvent } from "react-native-webview";
@@ -240,17 +241,17 @@ export default function Index() {
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
-      {/* <View
+      <View
         style={{
           height: Platform.OS === "android" ? StatusBar.currentHeight : 44,
           backgroundColor: "#32cd32",
         }}
-      /> */}
-      {/* <StatusBar
+      />
+      <StatusBar
         backgroundColor="#32cd32"
         barStyle="light-content"
         translucent
-      /> */}
+      />
       {/* Splash Screen */}
       {!isSplashHidden && (
         <Animated.View style={[styles.splashContainer, { opacity: fadeAnim }]}>
